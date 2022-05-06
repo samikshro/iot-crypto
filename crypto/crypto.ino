@@ -1,14 +1,6 @@
 #include <Arduino_GFX_Library.h>
-#include <PubSubClient.h>
-#include <pb.h>
-#include <pb_common.h>
-#include <pb_decode.h>
-#include <pb_encode.h>
 #include <WiFi.h>
 
-// IMPORTANT: MAKE SURE YOU PICK THE CORRECT BOARD. DO NOT USE HELTEC ESP32 FOR THIS LAB!
-// Use: Tools -> Board -> ESP32 Arduino -> ESP32 Wrover module
-//
 // Heltec ESP32 LoRa (V2) datasheet: https://resource.heltec.cn/download/WiFi_LoRa_32/WIFI_LoRa_32_V2.pdf
 //
 //
@@ -16,9 +8,8 @@
 const char* WIFI_SSID     = "Linden 234 Unit 3";
 const char* WIFI_PASSWORD = "Jameson1334";
 const char* NET_ID = "ss2659";
-// const char* LOBBY_NAME = "solo";    // Valid values are "test", "solo", "bot" and "prod". Not all are online yet.
 
-// Suggested ESP32 Pinout:
+// ESP32 Pinout:
 //
 // GPIO # | Purpose
 //      2 | TFT DC
@@ -35,7 +26,7 @@ const char* NET_ID = "ss2659";
 // Look over the linked Heltec datasheet for ESP32 pinouts.
 // Note: GPIOs 34-39 have no pullups/pulldowns.
 //
-// Pinouts defined as macros. Feel free to change these as needed.
+// Pinouts defined as macros
 #define TFT_DC     2
 #define TFT_CS     5
 #define TFT_RESET  17
@@ -52,7 +43,18 @@ Arduino_ESP32SPI bus = Arduino_ESP32SPI(TFT_DC, TFT_CS, TFT_SCK, TFT_MOSI, TFT_M
 Arduino_ILI9341 display = Arduino_ILI9341(&bus, TFT_RESET);
 WiFiClient wifi_client;
 
-int state = 0;
+// DEFINE states
+#define CRYPTO_INFO_BUY  1
+#define CRYPTO_INFO_SELL  2
+#define CRYPTO_INFO_NEXT  3
+#define BUY_TOKEN_BUY  4
+#define BUY_TOKEN_BACK 5
+#define SELL_TOKEN_SELL  6
+#define SELL_TOKEN_BACK 7
+
+int state = 1;
+int tokenDisplayID = 2;
+int tokensToPurchase = 0;
 
 void setup() {
   Serial.begin(115200);
@@ -62,15 +64,51 @@ void setup() {
   
   InitJoystick();
   InitWifi();
+
+  CryptoInfoDisplay("AVAX", 36080.67, 3, 400.08);
+  
 }
 
 void loop() {
+  
+//  if (state == WAITING_IN_LOBBY) {
+//    if(digitalRead(JOYSTICK_SW) == LOW) {
+//      //Serial.println("its clicked!");
+//    }
+//  } else if (state == GAME_IN_PROGRESS) {
+    int x_pos = analogRead(JOYSTICK_X);
+    int y_pos = analogRead(JOYSTICK_Y);
+
+    if (x_pos > 3800) { //RIGHT IS 4095
+//      Serial.println("RIGHT");
+      if (state == CRYPTO_INFO_BUY) {
+         state = CRYPTO_INFO_SELL;
+         CryptoInfoDisplay("AVAX", 36080.67, 3, 400.08);
+      } else if (state == CRYPTO_INFO_SELL) {
+         state = CRYPTO_INFO_NEXT;
+         CryptoInfoDisplay("AVAX", 36080.67, 3, 400.08);
+      }
+     
+    } else if (x_pos < 200){ //LEFT IS 0
+//      Serial.println("LEFT");
+      if (state == CRYPTO_INFO_SELL) {
+         state = CRYPTO_INFO_BUY;
+         CryptoInfoDisplay("AVAX", 36080.67, 3, 400.08);
+      } else if (state == CRYPTO_INFO_NEXT) {
+         state = CRYPTO_INFO_SELL;
+         CryptoInfoDisplay("AVAX", 36080.67, 3, 400.08);
+      }
+    } else if (y_pos > 3800) { //DOWN IS 4095
+//      Serial.println("DOWN");
+    } else if (y_pos < 200){ //UP IS 0
+//      Serial.println("UP");
+    }
   
 }
 
 void InitTFTDisplay() {
   display.begin();
-  display.setRotation(2);
+  display.setRotation(3);
   display.fillScreen(BLACK);
   display.setCursor(20, 20);
   display.setTextSize(2);
@@ -96,6 +134,101 @@ void InitWifi() {
   Serial.println("connected.");
 }
 
+void BuyScreenDisplay(String tokenName, double price, double liquid) {
+  
+  display.fillScreen(BLACK);
+  
+  display.setCursor(1, 1);
+  display.print("BUY " + tokenName);
+
+  int cursorX = 10;
+  int cursorY = 30;
+
+  display.setCursor(cursorX, cursorY);
+  display.print("Price ($): ");
+  display.setCursor(cursorX + 200, cursorY);
+  display.print(price);
+
+  cursorY = cursorY + 30;
+  display.setCursor(cursorX, cursorY);
+  display.print("Liquid ($): ");
+  display.setCursor(cursorX + 100, cursorY);
+  display.print(liquid);
+
+  cursorY = cursorY + 30;
+  display.setCursor(cursorX, cursorY);
+  display.print("Tokens to purchase: ");
+
+
+  int width = 80;
+  int height = 40;
+  cursorY = cursorY + 50;
+  display.drawRect(/*x_coordinate=*/ cursorX, /*y_coordinate=*/cursorY, /*width=*/width, /*height=*/height, 
+    /*color=*/ BLUE);
+  display.setCursor(cursorX + (width/4), cursorY + (height/4));
+  display.print(tokensToPurchase);
+  
+  cursorX = cursorX + 110;
+  display.drawRect(/*x_coordinate=*/ cursorX, /*y_coordinate=*/cursorY, /*width=*/width, /*height=*/height, 
+    /*color=*/ state == BUY_TOKEN_BACK ? CYAN : BLUE);
+  display.setCursor(cursorX + (width/4), cursorY + (height/4));
+  display.print("BACK");
+  
+  cursorX = cursorX + 110;
+  display.drawRect(/*x_coordinate=*/ cursorX, /*y_coordinate=*/cursorY, /*width=*/width, /*height=*/height, 
+    /*color=*/ state == BUY_TOKEN_BUY ? CYAN : BLUE);
+  display.setCursor(cursorX + (width/4), cursorY + (height/4));
+  display.print("BUY");
+  
+}
+
+void CryptoInfoDisplay(String tokenName, double price, int tokensOwned, double valueOwned) {
+  display.fillScreen(BLACK);
+  
+  display.setCursor(1, 1);
+  display.print(tokenName);
+
+  int cursorX = 10;
+  int cursorY = 30;
+
+  display.setCursor(cursorX, cursorY);
+  display.print("Price ($): ");
+  display.setCursor(cursorX + 200, cursorY);
+  display.print(price);
+
+  cursorY = cursorY + 30;
+  display.setCursor(cursorX, cursorY);
+  display.print("Tokens Owned: ");
+  display.setCursor(cursorX + 200, cursorY);
+  display.print(tokensOwned);
+
+  cursorY = cursorY + 30;
+  display.setCursor(cursorX, cursorY);
+  display.print("Value Owned ($): ");
+  display.setCursor(cursorX + 200, cursorY);
+  display.print(valueOwned);
+
+  int width = 80;
+  int height = 40;
+  cursorY = cursorY + 50;
+  display.drawRect(/*x_coordinate=*/ cursorX, /*y_coordinate=*/cursorY, /*width=*/width, /*height=*/height, 
+    /*color=*/ state == CRYPTO_INFO_BUY ? CYAN : BLUE);
+  display.setCursor(cursorX + (width/4), cursorY + (height/4));
+  display.print("BUY");
+  
+  cursorX = cursorX + 110;
+  display.drawRect(/*x_coordinate=*/ cursorX, /*y_coordinate=*/cursorY, /*width=*/width, /*height=*/height, 
+    /*color=*/ state == CRYPTO_INFO_SELL ? CYAN : BLUE);
+  display.setCursor(cursorX + (width/4), cursorY + (height/4));
+  display.print("SELL");
+  
+  cursorX = cursorX + 110;
+  display.drawRect(/*x_coordinate=*/ cursorX, /*y_coordinate=*/cursorY, /*width=*/width, /*height=*/height, 
+    /*color=*/ state == CRYPTO_INFO_NEXT ? CYAN : BLUE);
+  display.setCursor(cursorX + (width/4), cursorY + (height/4));
+  display.print("NEXT");
+  
+}
 
 // This is a test function to check that your TFT display is correctly wired up. Remove
 // this after you are done with testing the TFT.
@@ -106,6 +239,8 @@ void TestTFTDisplay(String text) {
   // (0,0) corresponds to the top left corner of the TFT display while
   // (239, 319) corresponds to the bottom right corner.
   display.fillRect(/*x_coordinate=*/ 10, /*y_coordinate=*/20, /*width=*/100, /*height=*/10, /*color=*/ WHITE);
+
+  display.drawRect(/*x_coordinate=*/ 10, /*y_coordinate=*/200, /*width=*/100, /*height=*/10, /*color=*/ WHITE);
 
   // You can also write text to the display. Setting the cursor beforehand will dictate the
   // screen coordinates to start rendering the text to.
