@@ -69,41 +69,80 @@ void setup() {
   
 }
 
+void wait() {
+  unsigned long time_now = millis();
+  while(millis() < time_now + 1000){
+    //wait approx. [period] ms
+  }
+}
+
 void loop() {
-  
-//  if (state == WAITING_IN_LOBBY) {
-//    if(digitalRead(JOYSTICK_SW) == LOW) {
-//      //Serial.println("its clicked!");
-//    }
-//  } else if (state == GAME_IN_PROGRESS) {
     int x_pos = analogRead(JOYSTICK_X);
     int y_pos = analogRead(JOYSTICK_Y);
 
     if (x_pos > 3800) { //RIGHT IS 4095
-//      Serial.println("RIGHT");
       if (state == CRYPTO_INFO_BUY) {
          state = CRYPTO_INFO_SELL;
          CryptoInfoDisplay("AVAX", 36080.67, 3, 400.08);
+         wait();
       } else if (state == CRYPTO_INFO_SELL) {
          state = CRYPTO_INFO_NEXT;
          CryptoInfoDisplay("AVAX", 36080.67, 3, 400.08);
+         wait();
+      } else if (state == BUY_TOKEN_BACK) {
+         state = BUY_TOKEN_BUY;
+         BuyScreenDisplay("AVAX", 36080.67, 100000.00);
+         wait();
+      } else if (state == SELL_TOKEN_BACK) {
+         state = SELL_TOKEN_SELL;
+//         SellScreenDisplay("AVAX", 36080.67, 100000.00);
+         wait();
       }
      
     } else if (x_pos < 200){ //LEFT IS 0
-//      Serial.println("LEFT");
       if (state == CRYPTO_INFO_SELL) {
          state = CRYPTO_INFO_BUY;
          CryptoInfoDisplay("AVAX", 36080.67, 3, 400.08);
+         wait();
+         
       } else if (state == CRYPTO_INFO_NEXT) {
          state = CRYPTO_INFO_SELL;
          CryptoInfoDisplay("AVAX", 36080.67, 3, 400.08);
+         wait();
+      } else if (state == BUY_TOKEN_BUY) {
+         state = BUY_TOKEN_BACK;
+         BuyScreenDisplay("AVAX", 36080.67, 100000.00);
+         wait();
+      } else if (state == SELL_TOKEN_SELL) {
+         state = SELL_TOKEN_BACK;
+//         SellScreenDisplay("AVAX", 36080.67, 100000.00);
+         wait();
       }
+      
     } else if (y_pos > 3800) { //DOWN IS 4095
-//      Serial.println("DOWN");
     } else if (y_pos < 200){ //UP IS 0
-//      Serial.println("UP");
+    } else if (digitalRead(JOYSTICK_SW) == LOW) { //IF THE BUTTON IS SELECTED
+      if (state == CRYPTO_INFO_BUY) { //AND YOU WANT TO GO TO THE BUY PAGE
+        state = BUY_TOKEN_BUY;
+        BuyScreenDisplay("AVAX", 36080.67, 100000.00);
+      } else if(state == CRYPTO_INFO_SELL) {//AND YOU WANT TO GO TO THE SELL PAGE
+        
+      } else if (state == CRYPTO_INFO_NEXT) {//AND YOU WANT TO GO TO THE NEXT TOKEN PAGE
+        
+      } else if (state == BUY_TOKEN_BUY) { //AND YOU WANT TO COMPLETE PURCHASE
+        
+      } else if (state == BUY_TOKEN_BACK) { //AND YOU WANT TO INFO PAGE FROM THE BUY PAGE
+        state = CRYPTO_INFO_BUY;
+        CryptoInfoDisplay("AVAX", 36080.67, 3, 400.08);
+        wait();
+      } else if (state == SELL_TOKEN_SELL) { //AND YOU WANT TO COMPLETE SELLING
+        
+      } else if (state == SELL_TOKEN_BACK) { //AND YOU WANT TO INFO PAGE FROM THE SELL PAGE
+        state = CRYPTO_INFO_BUY;
+        CryptoInfoDisplay("AVAX", 36080.67, 3, 400.08);
+        wait();
+      }
     }
-  
 }
 
 void InitTFTDisplay() {
@@ -146,13 +185,13 @@ void BuyScreenDisplay(String tokenName, double price, double liquid) {
 
   display.setCursor(cursorX, cursorY);
   display.print("Price ($): ");
-  display.setCursor(cursorX + 200, cursorY);
+  display.setCursor(cursorX + 150, cursorY);
   display.print(price);
 
   cursorY = cursorY + 30;
   display.setCursor(cursorX, cursorY);
   display.print("Liquid ($): ");
-  display.setCursor(cursorX + 100, cursorY);
+  display.setCursor(cursorX + 150, cursorY);
   display.print(liquid);
 
   cursorY = cursorY + 30;
