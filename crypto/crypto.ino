@@ -53,6 +53,9 @@ WiFiClient wifi_client;
 #define BUY_TOKEN_BACK 5
 #define SELL_TOKEN_SELL  6
 #define SELL_TOKEN_BACK 7
+#define MAX_PAGES 4
+
+#define WAIT_TIME 400
 
 struct Coin {
   String coinName;
@@ -62,12 +65,20 @@ struct Coin {
   int tokenOwned;
 }; 
 
+struct Portfolio {
+  double liquid;
+  double tvl;
+  double totalValue;
+  int id;
+}; 
+
 int state = 1;
 int tokenDisplayID = 2;
 int tokensToPurchase = 0;
 int currentCoinID = 0;
 
 struct Coin coins[4];
+struct Portfolio portfolio;
 
 void setup() {
   Serial.begin(115200);
@@ -79,6 +90,7 @@ void setup() {
   InitWifi();
   
   getCurrentCoinList();
+  getCurrentPortfolio();
   CryptoInfoDisplay(currentCoinID);
   
 }
@@ -89,6 +101,43 @@ void wait(long add) {
     //wait approx. [period] ms
   }
 }
+
+void getCurrentPortfolio() {
+    HTTPClient http;
+    http.useHTTP10(true);
+    http.begin("https://api.sheety.co/3819fb057a19f6f9f01665dde28e5f08/iotCryptoTracker/earnings"); //Specify the URL
+    int httpCode = http.GET();                                        //Make the request
+    if (httpCode > 0) { //Check for the returning code
+      // Stream& input;
+      StaticJsonDocument<192> doc;
+
+      DeserializationError error = deserializeJson(doc, http.getStream());
+      
+      if (error) {
+        Serial.print("deserializeJson() failed: ");
+        Serial.println(error.c_str());
+        return;
+      }
+      
+      JsonObject earnings_0 = doc["earnings"][0];
+      int earnings_0_liquid = earnings_0["liquid"]; // 50
+      double earnings_0_tvl = earnings_0["tvl"]; // 210449.15000000002
+      double earnings_0_totalValue = earnings_0["totalValue"]; // 210499.15000000002
+      int earnings_0_id = earnings_0["id"]; // 2
+      portfolio.liquid = earnings_0_liquid;
+      portfolio.tvl = earnings_0_tvl;
+      portfolio.totalValue = earnings_0_totalValue;
+      portfolio.id = earnings_0_id;
+
+    }
+  
+    else {
+      Serial.println("Error on HTTP request");
+    }
+  
+    http.end(); //Free the resources
+}
+
 
 void getCurrentCoinList() {
     HTTPClient http;
@@ -120,17 +169,7 @@ void getCurrentCoinList() {
           coins[id-2].id = dbTable_item_id;
           coins[id-2].coinName = dbTable_item_name;
           coins[id-2].coinValue = dbTable_item_value;
-//        Serial.println(dbTable_item_name);
         }
-
-  
-//        String payload = http.getString();
-//        Serial.println(httpCode);
-//        Serial.println(payload);
-//        Serial.println(coins[0].coinName);
-//        Serial.println(coins[1].coinName);
-//        Serial.println(coins[2].coinName);
-//        Serial.println(coins[3].coinName);
       }
   
     else {
@@ -148,67 +187,77 @@ void loop() {
       if (state == CRYPTO_INFO_BUY) {
          state = CRYPTO_INFO_SELL;
          CryptoInfoDisplay(currentCoinID);
-         wait(1000);
+         wait(WAIT_TIME);
       } else if (state == CRYPTO_INFO_SELL) {
          state = CRYPTO_INFO_NEXT;
          CryptoInfoDisplay(currentCoinID);
-         wait(1000);
+         wait(WAIT_TIME);
          } else if (state == BUY_TOKEN_BACK) {
          state = BUY_TOKEN_BUY;
-         BuyScreenDisplay("AVAX", 36080.67, 100000.00);
-         wait(1000);
+         BuyScreenDisplay(currentCoinID);
+         wait(WAIT_TIME);
       } else if (state == SELL_TOKEN_BACK) {
          state = SELL_TOKEN_SELL;
 //         SellScreenDisplay("AVAX", 36080.67, 100000.00);
-         wait(1000);
+         wait(WAIT_TIME);
       }
      
     } else if (x_pos < 200){ //LEFT IS 0
       if (state == CRYPTO_INFO_SELL) {
          state = CRYPTO_INFO_BUY;
          CryptoInfoDisplay(currentCoinID);
-         wait(1000);
+         wait(WAIT_TIME);
          
       } else if (state == CRYPTO_INFO_NEXT) {
          state = CRYPTO_INFO_SELL;
          CryptoInfoDisplay(currentCoinID);
-         wait(1000);
+         wait(WAIT_TIME);
       } else if (state == BUY_TOKEN_BUY) {
          state = BUY_TOKEN_BACK;
-         BuyScreenDisplay("AVAX", 36080.67, 100000.00);
-         wait(1000);
+         BuyScreenDisplay(currentCoinID);
+         wait(WAIT_TIME);
       } else if (state == SELL_TOKEN_SELL) {
          state = SELL_TOKEN_BACK;
 //         SellScreenDisplay("AVAX", 36080.67, 100000.00);
-         wait(1000);
+         wait(WAIT_TIME);
       }
       
     } else if (y_pos > 3800) { //DOWN IS 4095
       if (state == BUY_TOKEN_BACK || state == BUY_TOKEN_BUY ||
           state == SELL_TOKEN_BACK || state == SELL_TOKEN_SELL) {
-        (tokensToPurchase == 0) ? tokensToPurchase = 0 : tokensToPurchase--;
-
         if (tokensToPurchase != 0) {
-          tokensToPurchase = tokensToPurchase + 1;
-          BuyScreenDisplay("AVAX", 36080.67, 100000.00);
-          wait(100);
+          tokensToPurchase = tokensToPurchase - 1;
+          BuyScreenDisplay(currentCoinID);
+          wait(WAIT_TIME);
         }
       }
     } else if (y_pos < 200){ //UP IS 0
       if (state == BUY_TOKEN_BACK || state == BUY_TOKEN_BUY ||
           state == SELL_TOKEN_BACK || state == SELL_TOKEN_SELL) {
         tokensToPurchase = tokensToPurchase + 1;
-        BuyScreenDisplay("AVAX", 36080.67, 100000.00);
-        wait(100);
+        BuyScreenDisplay(currentCoinID);
+        wait(WAIT_TIME);
       }
       
     } else if (digitalRead(JOYSTICK_SW) == LOW) { //IF THE BUTTON IS SELECTED
       if (state == CRYPTO_INFO_BUY) { //AND YOU WANT TO GO TO THE BUY PAGE
         state = BUY_TOKEN_BUY;
-        BuyScreenDisplay("AVAX", 36080.67, 100000.00);
+        BuyScreenDisplay(currentCoinID);
+        wait(WAIT_TIME);
       } else if(state == CRYPTO_INFO_SELL) {//AND YOU WANT TO GO TO THE SELL PAGE
         
       } else if (state == CRYPTO_INFO_NEXT) {//AND YOU WANT TO GO TO THE NEXT TOKEN PAGE
+        if (currentCoinID + 1 < MAX_PAGES) {
+          currentCoinID = currentCoinID + 1;
+          state = CRYPTO_INFO_BUY; 
+          CryptoInfoDisplay(currentCoinID);
+          wait(WAIT_TIME);
+        } else {
+          currentCoinID = 0;
+          state = CRYPTO_INFO_BUY; 
+          CryptoInfoDisplay(currentCoinID);
+          wait(WAIT_TIME);
+        }
         
       } else if (state == BUY_TOKEN_BUY) { //AND YOU WANT TO COMPLETE PURCHASE
         
@@ -216,14 +265,14 @@ void loop() {
         state = CRYPTO_INFO_BUY;
         tokensToPurchase = 0;
         CryptoInfoDisplay(currentCoinID);
-        wait(1000);
+        wait(WAIT_TIME);
       } else if (state == SELL_TOKEN_SELL) { //AND YOU WANT TO COMPLETE SELLING
         
       } else if (state == SELL_TOKEN_BACK) { //AND YOU WANT TO INFO PAGE FROM THE SELL PAGE
         state = CRYPTO_INFO_BUY;
         tokensToPurchase = 0;
         CryptoInfoDisplay(currentCoinID);
-        wait(1000);
+        wait(WAIT_TIME);
       }
     }
 }
@@ -256,10 +305,11 @@ void InitWifi() {
   Serial.println("connected.");
 }
 
-void BuyScreenDisplay(String tokenName, double price, double liquid) {
-//  String tokenName = coins[localID].coinName; 
-//  double price= coins[localID].coinPrice; 
-//  double valueOwned= coins[localID].coinValue;
+void BuyScreenDisplay(int localID) {
+  String tokenName = coins[localID].coinName; 
+  double price= coins[localID].coinPrice; 
+  double valueOwned= coins[localID].coinValue;
+  double liquid = portfolio.liquid;
   
   display.fillScreen(BLACK);
   
