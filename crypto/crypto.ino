@@ -54,6 +54,8 @@ WiFiClient wifi_client;
 #define SELL_TOKEN_SELL  6
 #define SELL_TOKEN_BACK 7
 #define MAX_PAGES 4
+#define LOW_AXIS 1000
+#define HIGH_AXIS 3800
 
 #define WAIT_TIME 400
 
@@ -183,7 +185,7 @@ void loop() {
     int x_pos = analogRead(JOYSTICK_X);
     int y_pos = analogRead(JOYSTICK_Y);
 
-    if (x_pos > 3800) { //RIGHT IS 4095
+    if (x_pos > HIGH_AXIS) { //RIGHT IS 4095
       if (state == CRYPTO_INFO_BUY) {
          state = CRYPTO_INFO_SELL;
          CryptoInfoDisplay(currentCoinID);
@@ -198,11 +200,11 @@ void loop() {
          wait(WAIT_TIME);
       } else if (state == SELL_TOKEN_BACK) {
          state = SELL_TOKEN_SELL;
-//         SellScreenDisplay("AVAX", 36080.67, 100000.00);
+         SellScreenDisplay(currentCoinID);
          wait(WAIT_TIME);
       }
      
-    } else if (x_pos < 200){ //LEFT IS 0
+    } else if (x_pos < LOW_AXIS){ //LEFT IS 0
       if (state == CRYPTO_INFO_SELL) {
          state = CRYPTO_INFO_BUY;
          CryptoInfoDisplay(currentCoinID);
@@ -218,24 +220,32 @@ void loop() {
          wait(WAIT_TIME);
       } else if (state == SELL_TOKEN_SELL) {
          state = SELL_TOKEN_BACK;
-//         SellScreenDisplay("AVAX", 36080.67, 100000.00);
+         SellScreenDisplay(currentCoinID);
          wait(WAIT_TIME);
       }
       
-    } else if (y_pos > 3800) { //DOWN IS 4095
-      if (state == BUY_TOKEN_BACK || state == BUY_TOKEN_BUY ||
-          state == SELL_TOKEN_BACK || state == SELL_TOKEN_SELL) {
+    } else if (y_pos > HIGH_AXIS) { //DOWN IS 4095
+      if (state == BUY_TOKEN_BACK || state == BUY_TOKEN_BUY) {
         if (tokensToPurchase != 0) {
           tokensToPurchase = tokensToPurchase - 1;
           BuyScreenDisplay(currentCoinID);
           wait(WAIT_TIME);
-        }
+        } 
+      } else if (state == SELL_TOKEN_BACK || state == SELL_TOKEN_SELL) {
+        if (tokensToPurchase != 0) {
+          tokensToPurchase = tokensToPurchase - 1;
+          SellScreenDisplay(currentCoinID);
+          wait(WAIT_TIME);
+        } 
       }
-    } else if (y_pos < 200){ //UP IS 0
-      if (state == BUY_TOKEN_BACK || state == BUY_TOKEN_BUY ||
-          state == SELL_TOKEN_BACK || state == SELL_TOKEN_SELL) {
+    } else if (y_pos < LOW_AXIS){ //UP IS 0
+      if (state == BUY_TOKEN_BACK || state == BUY_TOKEN_BUY) {
         tokensToPurchase = tokensToPurchase + 1;
         BuyScreenDisplay(currentCoinID);
+        wait(WAIT_TIME);
+      } else if (state == SELL_TOKEN_BACK || state == SELL_TOKEN_SELL) {
+        tokensToPurchase = tokensToPurchase + 1;
+        SellScreenDisplay(currentCoinID);
         wait(WAIT_TIME);
       }
       
@@ -245,7 +255,9 @@ void loop() {
         BuyScreenDisplay(currentCoinID);
         wait(WAIT_TIME);
       } else if(state == CRYPTO_INFO_SELL) {//AND YOU WANT TO GO TO THE SELL PAGE
-        
+        state = SELL_TOKEN_SELL;
+        SellScreenDisplay(currentCoinID);
+        wait(WAIT_TIME);
       } else if (state == CRYPTO_INFO_NEXT) {//AND YOU WANT TO GO TO THE NEXT TOKEN PAGE
         if (currentCoinID + 1 < MAX_PAGES) {
           currentCoinID = currentCoinID + 1;
@@ -303,6 +315,64 @@ void InitWifi() {
     Serial.print(".");
   }
   Serial.println("connected.");
+}
+
+void SellScreenDisplay(int localID) {
+  String tokenName = coins[localID].coinName; 
+  double price= coins[localID].coinPrice; 
+  double valueOwned= coins[localID].coinValue;
+  double tokenOwned = coins[localID].tokenOwned;
+  
+  display.fillScreen(BLACK);
+  
+  display.setCursor(1, 1);
+  display.print("SELL " + tokenName);
+
+  int cursorX = 10;
+  int cursorY = 30;
+
+  display.setCursor(cursorX, cursorY);
+  display.print("Price ($): ");
+  display.setCursor(cursorX + 150, cursorY);
+  display.print(price);
+
+  cursorY = cursorY + 30;
+  display.setCursor(cursorX, cursorY);
+  display.print("Tokens Owned: ");
+  display.setCursor(cursorX + 160, cursorY);
+  display.print(tokenOwned);
+
+  cursorY = cursorY + 30;
+  display.setCursor(cursorX, cursorY);
+  display.print("Value: ");
+  display.setCursor(cursorX + 150, cursorY);
+  display.print(valueOwned);
+
+  cursorY = cursorY + 30;
+  display.setCursor(cursorX, cursorY);
+  display.print("Tokens to sell: ");
+
+
+  int width = 80;
+  int height = 40;
+  cursorY = cursorY + 50;
+  display.drawRect(/*x_coordinate=*/ cursorX, /*y_coordinate=*/cursorY, /*width=*/width, /*height=*/height, 
+    /*color=*/ BLUE);
+  display.setCursor(cursorX + (width/4), cursorY + (height/4));
+  display.print(tokensToPurchase);
+  
+  cursorX = cursorX + 110;
+  display.drawRect(/*x_coordinate=*/ cursorX, /*y_coordinate=*/cursorY, /*width=*/width, /*height=*/height, 
+    /*color=*/ state == SELL_TOKEN_BACK ? CYAN : BLUE);
+  display.setCursor(cursorX + (width/4), cursorY + (height/4));
+  display.print("BACK");
+  
+  cursorX = cursorX + 110;
+  display.drawRect(/*x_coordinate=*/ cursorX, /*y_coordinate=*/cursorY, /*width=*/width, /*height=*/height, 
+    /*color=*/ state == SELL_TOKEN_SELL ? CYAN : BLUE);
+  display.setCursor(cursorX + (width/4), cursorY + (height/4));
+  display.print("SELL");
+  
 }
 
 void BuyScreenDisplay(int localID) {
