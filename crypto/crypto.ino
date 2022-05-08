@@ -65,6 +65,7 @@ struct Coin {
 int state = 1;
 int tokenDisplayID = 2;
 int tokensToPurchase = 0;
+int currentCoinID = 0;
 
 struct Coin coins[4];
 
@@ -72,12 +73,13 @@ void setup() {
   Serial.begin(115200);
   
   InitTFTDisplay();
-  TestTFTDisplay("hello world");
+  TestTFTDisplay("Loading wallet...");
   
   InitJoystick();
   InitWifi();
-
-  CryptoInfoDisplay("AVAX", 36080.67, 3, 400.08);
+  
+  getCurrentCoinList();
+  CryptoInfoDisplay(currentCoinID);
   
 }
 
@@ -139,18 +141,17 @@ void getCurrentCoinList() {
 }
 
 void loop() {
-  getCurrentCoinList();
     int x_pos = analogRead(JOYSTICK_X);
     int y_pos = analogRead(JOYSTICK_Y);
 
     if (x_pos > 3800) { //RIGHT IS 4095
       if (state == CRYPTO_INFO_BUY) {
          state = CRYPTO_INFO_SELL;
-         CryptoInfoDisplay("AVAX", 36080.67, 3, 400.08);
+         CryptoInfoDisplay(currentCoinID);
          wait(1000);
       } else if (state == CRYPTO_INFO_SELL) {
          state = CRYPTO_INFO_NEXT;
-         CryptoInfoDisplay("AVAX", 36080.67, 3, 400.08);
+         CryptoInfoDisplay(currentCoinID);
          wait(1000);
          } else if (state == BUY_TOKEN_BACK) {
          state = BUY_TOKEN_BUY;
@@ -165,12 +166,12 @@ void loop() {
     } else if (x_pos < 200){ //LEFT IS 0
       if (state == CRYPTO_INFO_SELL) {
          state = CRYPTO_INFO_BUY;
-         CryptoInfoDisplay("AVAX", 36080.67, 3, 400.08);
+         CryptoInfoDisplay(currentCoinID);
          wait(1000);
          
       } else if (state == CRYPTO_INFO_NEXT) {
          state = CRYPTO_INFO_SELL;
-         CryptoInfoDisplay("AVAX", 36080.67, 3, 400.08);
+         CryptoInfoDisplay(currentCoinID);
          wait(1000);
       } else if (state == BUY_TOKEN_BUY) {
          state = BUY_TOKEN_BACK;
@@ -214,14 +215,14 @@ void loop() {
       } else if (state == BUY_TOKEN_BACK) { //AND YOU WANT TO INFO PAGE FROM THE BUY PAGE
         state = CRYPTO_INFO_BUY;
         tokensToPurchase = 0;
-        CryptoInfoDisplay("AVAX", 36080.67, 3, 400.08);
+        CryptoInfoDisplay(currentCoinID);
         wait(1000);
       } else if (state == SELL_TOKEN_SELL) { //AND YOU WANT TO COMPLETE SELLING
         
       } else if (state == SELL_TOKEN_BACK) { //AND YOU WANT TO INFO PAGE FROM THE SELL PAGE
         state = CRYPTO_INFO_BUY;
         tokensToPurchase = 0;
-        CryptoInfoDisplay("AVAX", 36080.67, 3, 400.08);
+        CryptoInfoDisplay(currentCoinID);
         wait(1000);
       }
     }
@@ -256,6 +257,9 @@ void InitWifi() {
 }
 
 void BuyScreenDisplay(String tokenName, double price, double liquid) {
+//  String tokenName = coins[localID].coinName; 
+//  double price= coins[localID].coinPrice; 
+//  double valueOwned= coins[localID].coinValue;
   
   display.fillScreen(BLACK);
   
@@ -303,7 +307,12 @@ void BuyScreenDisplay(String tokenName, double price, double liquid) {
   
 }
 
-void CryptoInfoDisplay(String tokenName, double price, int tokensOwned, double valueOwned) {
+void CryptoInfoDisplay(int localID) {
+  String tokenName = coins[localID].coinName; 
+  double price= coins[localID].coinPrice; 
+  int tokensOwned= coins[localID].tokenOwned; 
+  double valueOwned= coins[localID].coinValue;
+  
   display.fillScreen(BLACK);
   
   display.setCursor(1, 1);
