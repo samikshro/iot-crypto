@@ -1,5 +1,6 @@
 #include <Arduino_GFX_Library.h>
 #include <WiFi.h>
+#include <HTTPClient.h>
 
 // Heltec ESP32 LoRa (V2) datasheet: https://resource.heltec.cn/download/WiFi_LoRa_32/WIFI_LoRa_32_V2.pdf
 //
@@ -69,14 +70,34 @@ void setup() {
   
 }
 
-void wait() {
+void wait(long add) {
   unsigned long time_now = millis();
-  while(millis() < time_now + 1000){
+  while(millis() < time_now + add){
     //wait approx. [period] ms
   }
 }
 
 void loop() {
+    HTTPClient http;
+  
+    http.begin("https://api.sheety.co/3819fb057a19f6f9f01665dde28e5f08/iotCryptoTracker/dbTable"); //Specify the URL
+    int httpCode = http.GET();                                        //Make the request
+  
+    if (httpCode > 0) { //Check for the returning code
+  
+        String payload = http.getString();
+        Serial.println(httpCode);
+        Serial.println(payload);
+      }
+  
+    else {
+      Serial.println("Error on HTTP request");
+    }
+  
+    http.end(); //Free the resources
+  
+  
+  delay(10000);
     int x_pos = analogRead(JOYSTICK_X);
     int y_pos = analogRead(JOYSTICK_Y);
 
@@ -84,43 +105,60 @@ void loop() {
       if (state == CRYPTO_INFO_BUY) {
          state = CRYPTO_INFO_SELL;
          CryptoInfoDisplay("AVAX", 36080.67, 3, 400.08);
-         wait();
+         wait(1000);
       } else if (state == CRYPTO_INFO_SELL) {
          state = CRYPTO_INFO_NEXT;
          CryptoInfoDisplay("AVAX", 36080.67, 3, 400.08);
-         wait();
-      } else if (state == BUY_TOKEN_BACK) {
+         wait(1000);
+         } else if (state == BUY_TOKEN_BACK) {
          state = BUY_TOKEN_BUY;
          BuyScreenDisplay("AVAX", 36080.67, 100000.00);
-         wait();
+         wait(1000);
       } else if (state == SELL_TOKEN_BACK) {
          state = SELL_TOKEN_SELL;
 //         SellScreenDisplay("AVAX", 36080.67, 100000.00);
-         wait();
+         wait(1000);
       }
      
     } else if (x_pos < 200){ //LEFT IS 0
       if (state == CRYPTO_INFO_SELL) {
          state = CRYPTO_INFO_BUY;
          CryptoInfoDisplay("AVAX", 36080.67, 3, 400.08);
-         wait();
+         wait(1000);
          
       } else if (state == CRYPTO_INFO_NEXT) {
          state = CRYPTO_INFO_SELL;
          CryptoInfoDisplay("AVAX", 36080.67, 3, 400.08);
-         wait();
+         wait(1000);
       } else if (state == BUY_TOKEN_BUY) {
          state = BUY_TOKEN_BACK;
          BuyScreenDisplay("AVAX", 36080.67, 100000.00);
-         wait();
+         wait(1000);
       } else if (state == SELL_TOKEN_SELL) {
          state = SELL_TOKEN_BACK;
 //         SellScreenDisplay("AVAX", 36080.67, 100000.00);
-         wait();
+         wait(1000);
       }
       
     } else if (y_pos > 3800) { //DOWN IS 4095
+      if (state == BUY_TOKEN_BACK || state == BUY_TOKEN_BUY ||
+          state == SELL_TOKEN_BACK || state == SELL_TOKEN_SELL) {
+        (tokensToPurchase == 0) ? tokensToPurchase = 0 : tokensToPurchase--;
+
+        if (tokensToPurchase != 0) {
+          tokensToPurchase = tokensToPurchase + 1;
+          BuyScreenDisplay("AVAX", 36080.67, 100000.00);
+          wait(100);
+        }
+      }
     } else if (y_pos < 200){ //UP IS 0
+      if (state == BUY_TOKEN_BACK || state == BUY_TOKEN_BUY ||
+          state == SELL_TOKEN_BACK || state == SELL_TOKEN_SELL) {
+        tokensToPurchase = tokensToPurchase + 1;
+        BuyScreenDisplay("AVAX", 36080.67, 100000.00);
+        wait(100);
+      }
+      
     } else if (digitalRead(JOYSTICK_SW) == LOW) { //IF THE BUTTON IS SELECTED
       if (state == CRYPTO_INFO_BUY) { //AND YOU WANT TO GO TO THE BUY PAGE
         state = BUY_TOKEN_BUY;
@@ -133,14 +171,16 @@ void loop() {
         
       } else if (state == BUY_TOKEN_BACK) { //AND YOU WANT TO INFO PAGE FROM THE BUY PAGE
         state = CRYPTO_INFO_BUY;
+        tokensToPurchase = 0;
         CryptoInfoDisplay("AVAX", 36080.67, 3, 400.08);
-        wait();
+        wait(1000);
       } else if (state == SELL_TOKEN_SELL) { //AND YOU WANT TO COMPLETE SELLING
         
       } else if (state == SELL_TOKEN_BACK) { //AND YOU WANT TO INFO PAGE FROM THE SELL PAGE
         state = CRYPTO_INFO_BUY;
+        tokensToPurchase = 0;
         CryptoInfoDisplay("AVAX", 36080.67, 3, 400.08);
-        wait();
+        wait(1000);
       }
     }
 }
