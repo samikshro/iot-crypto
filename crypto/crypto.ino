@@ -1,6 +1,7 @@
 #include <Arduino_GFX_Library.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <ArduinoJson.h>
 
 // Heltec ESP32 LoRa (V2) datasheet: https://resource.heltec.cn/download/WiFi_LoRa_32/WIFI_LoRa_32_V2.pdf
 //
@@ -53,9 +54,19 @@ WiFiClient wifi_client;
 #define SELL_TOKEN_SELL  6
 #define SELL_TOKEN_BACK 7
 
+struct Coin {
+  String coinName;
+  int id;
+  double coinPrice;
+  double coinValue;
+  int tokenOwned;
+}; 
+
 int state = 1;
 int tokenDisplayID = 2;
 int tokensToPurchase = 0;
+
+struct Coin coins[4];
 
 void setup() {
   Serial.begin(115200);
@@ -77,17 +88,47 @@ void wait(long add) {
   }
 }
 
-void loop() {
+void getCurrentCoinList() {
     HTTPClient http;
-  
+    http.useHTTP10(true);
     http.begin("https://api.sheety.co/3819fb057a19f6f9f01665dde28e5f08/iotCryptoTracker/dbTable"); //Specify the URL
     int httpCode = http.GET();                                        //Make the request
-  
     if (httpCode > 0) { //Check for the returning code
+      // Stream& input;
+        StaticJsonDocument<768> doc;
+        
+        DeserializationError error = deserializeJson(doc, http.getStream());
+        if (error) {
+          Serial.println("at getCurrentCoinList 5");
+          Serial.print("deserializeJson() failed: ");
+          Serial.println(error.c_str());
+          return;
+        }
+        
+        for (JsonObject dbTable_item : doc["dbTable"].as<JsonArray>()) {
+        
+          String dbTable_item_name = dbTable_item["name"]; // "Bitcoin", "Ethereum", "Litecoin", "USDC"
+          double dbTable_item_price = dbTable_item["price"]; // 34393.4, 2540.65, 93.27000000000001, 1
+          int dbTable_item_tokenOwned = dbTable_item["tokenOwned"]; // 0, 2, 0, 0
+          double dbTable_item_value = dbTable_item["value"]; // 0, 5081.3, 0, 0
+          int dbTable_item_id = dbTable_item["id"]; // 2, 3, 4, 5
+          int id = dbTable_item_id;
+          coins[id-2].coinPrice = dbTable_item_price;
+          coins[id-2].tokenOwned = dbTable_item_tokenOwned;
+          coins[id-2].id = dbTable_item_id;
+          coins[id-2].coinName = dbTable_item_name;
+          coins[id-2].coinValue = dbTable_item_value;
+//        Serial.println(dbTable_item_name);
+        }
+
   
-        String payload = http.getString();
-        Serial.println(httpCode);
-        Serial.println(payload);
+//        String payload = http.getString();
+//        Serial.println(httpCode);
+//        Serial.println(payload);
+//        Serial.println(coins[0].coinName);
+//        Serial.println(coins[1].coinName);
+//        Serial.println(coins[2].coinName);
+//        Serial.println(coins[3].coinName);
       }
   
     else {
@@ -95,9 +136,10 @@ void loop() {
     }
   
     http.end(); //Free the resources
-  
-  
-  delay(10000);
+}
+
+void loop() {
+  getCurrentCoinList();
     int x_pos = analogRead(JOYSTICK_X);
     int y_pos = analogRead(JOYSTICK_Y);
 
