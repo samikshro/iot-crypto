@@ -239,6 +239,20 @@ void putBuyOrder(int localID, int tokenToOwn) {
   }
 }
 
+void putSellOrder(int localID, int tokenToSell) {
+  
+  double newLiquid = portfolio.liquid + (tokenToSell*coins[localID].coinPrice);
+  if (tokenToSell <= coins[localID].tokenOwned) {
+    putTokenOwned(localID, tokenToSell, false);
+    putLiquidity(newLiquid);
+    getCurrentCoinList();
+    getCurrentPortfolio();
+    
+  } else {
+    Serial.println("Error: too many tokens");
+  }
+}
+
 void loop() {
     int x_pos = analogRead(JOYSTICK_X);
     int y_pos = analogRead(JOYSTICK_Y);
@@ -332,14 +346,16 @@ void loop() {
       } else if (state == BUY_TOKEN_BUY) { //AND YOU WANT TO COMPLETE PURCHASE
         putBuyOrder(currentCoinID, tokensToPurchase);
         tokensToPurchase = 0;
-        
+        wait(WAIT_TIME);
       } else if (state == BUY_TOKEN_BACK) { //AND YOU WANT TO INFO PAGE FROM THE BUY PAGE
         state = CRYPTO_INFO_BUY;
         tokensToPurchase = 0;
         CryptoInfoDisplay(currentCoinID);
         wait(WAIT_TIME);
       } else if (state == SELL_TOKEN_SELL) { //AND YOU WANT TO COMPLETE SELLING
-        
+        putSellOrder(currentCoinID, tokensToPurchase);
+        tokensToPurchase = 0;
+        wait(WAIT_TIME);
       } else if (state == SELL_TOKEN_BACK) { //AND YOU WANT TO INFO PAGE FROM THE SELL PAGE
         state = CRYPTO_INFO_BUY;
         tokensToPurchase = 0;
