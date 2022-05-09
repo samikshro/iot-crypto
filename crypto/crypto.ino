@@ -181,6 +181,26 @@ void getCurrentCoinList() {
     http.end(); //Free the resources
 }
 
+void putBuyOrder(int localID, int tokenToOwn) {
+  HTTPClient http;
+  const char* fingerprint = "E0 BA 6D 04 D4 D3 E0 74 8F F9 AC 3E 2C 9E 99 A5 52 80 DC FB";
+//  http.useHTTP10(true);
+http.begin("https://api.sheety.co/3819fb057a19f6f9f01665dde28e5f08/iotCryptoTracker/dbTable/2"); //Specify the URL
+  http.addHeader("Accept", "application/json");
+  http.addHeader("Content-Type", "application/json");
+  StaticJsonDocument<32> doc;
+  JsonObject root = doc.to<JsonObject>();
+  root["dbTable"]["tokenOwned"] = coins[localID].tokenOwned + tokenToOwn;
+  String json;
+  serializeJson(root, json);
+  Serial.println(json);
+  
+  int httpCode = http.PUT(json); 
+  Serial.println(httpCode);
+  Serial.print(http.getString());
+  http.end();    
+}
+
 void loop() {
     int x_pos = analogRead(JOYSTICK_X);
     int y_pos = analogRead(JOYSTICK_Y);
@@ -272,6 +292,8 @@ void loop() {
         }
         
       } else if (state == BUY_TOKEN_BUY) { //AND YOU WANT TO COMPLETE PURCHASE
+        putBuyOrder(currentCoinID, tokensToPurchase);
+        tokensToPurchase = 0;
         
       } else if (state == BUY_TOKEN_BACK) { //AND YOU WANT TO INFO PAGE FROM THE BUY PAGE
         state = CRYPTO_INFO_BUY;
