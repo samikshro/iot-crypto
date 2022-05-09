@@ -59,6 +59,13 @@ WiFiClient wifi_client;
 
 #define WAIT_TIME 400
 
+#define BLANK  0
+#define LOADING  2
+#define SUCCESS  3
+#define ERROR_BUY  4
+#define ERROR_SELL  1
+
+
 struct Coin {
   String coinName;
   int id;
@@ -75,9 +82,9 @@ struct Portfolio {
 }; 
 
 int state = 1;
-int tokenDisplayID = 2;
 int tokensToPurchase = 0;
 int currentCoinID = 0;
+int buySellMsg = BLANK;
 
 struct Coin coins[4];
 struct Portfolio portfolio;
@@ -122,7 +129,7 @@ void getCurrentPortfolio() {
       }
       
       JsonObject earnings_0 = doc["earnings"][0];
-      int earnings_0_liquid = earnings_0["liquid"]; // 50
+      double earnings_0_liquid = earnings_0["liquid"]; // 50
       double earnings_0_tvl = earnings_0["tvl"]; // 210449.15000000002
       double earnings_0_totalValue = earnings_0["totalValue"]; // 210499.15000000002
       int earnings_0_id = earnings_0["id"]; // 2
@@ -233,8 +240,10 @@ void putBuyOrder(int localID, int tokenToOwn) {
     putLiquidity(newLiquid);
     getCurrentCoinList();
     getCurrentPortfolio();
+    buySellMsg = SUCCESS;
     
   } else {
+    buySellMsg = ERROR_BUY;
     Serial.println("Error: too little liquidity");
   }
 }
@@ -247,8 +256,9 @@ void putSellOrder(int localID, int tokenToSell) {
     putLiquidity(newLiquid);
     getCurrentCoinList();
     getCurrentPortfolio();
-    
+    buySellMsg = SUCCESS;
   } else {
+    buySellMsg = ERROR_SELL;
     Serial.println("Error: too many tokens");
   }
 }
@@ -344,18 +354,28 @@ void loop() {
         }
         
       } else if (state == BUY_TOKEN_BUY) { //AND YOU WANT TO COMPLETE PURCHASE
+        buySellMsg = LOADING;
+        BuyScreenDisplay(currentCoinID);
         putBuyOrder(currentCoinID, tokensToPurchase);
         tokensToPurchase = 0;
-        wait(WAIT_TIME);
+        BuyScreenDisplay(currentCoinID);
+        wait(1000);
+        buySellMsg = BLANK;
+        BuyScreenDisplay(currentCoinID);
       } else if (state == BUY_TOKEN_BACK) { //AND YOU WANT TO INFO PAGE FROM THE BUY PAGE
         state = CRYPTO_INFO_BUY;
         tokensToPurchase = 0;
         CryptoInfoDisplay(currentCoinID);
         wait(WAIT_TIME);
       } else if (state == SELL_TOKEN_SELL) { //AND YOU WANT TO COMPLETE SELLING
+        buySellMsg = LOADING;
+        SellScreenDisplay(currentCoinID);
         putSellOrder(currentCoinID, tokensToPurchase);
         tokensToPurchase = 0;
-        wait(WAIT_TIME);
+        SellScreenDisplay(currentCoinID);
+        wait(1000);
+        buySellMsg = BLANK;
+        SellScreenDisplay(currentCoinID);
       } else if (state == SELL_TOKEN_BACK) { //AND YOU WANT TO INFO PAGE FROM THE SELL PAGE
         state = CRYPTO_INFO_BUY;
         tokensToPurchase = 0;
@@ -431,7 +451,7 @@ void SellScreenDisplay(int localID) {
 
   int width = 80;
   int height = 40;
-  cursorY = cursorY + 50;
+  cursorY = cursorY + 30;
   display.drawRect(/*x_coordinate=*/ cursorX, /*y_coordinate=*/cursorY, /*width=*/width, /*height=*/height, 
     /*color=*/ BLUE);
   display.setCursor(cursorX + (width/4), cursorY + (height/4));
@@ -448,7 +468,19 @@ void SellScreenDisplay(int localID) {
     /*color=*/ state == SELL_TOKEN_SELL ? CYAN : BLUE);
   display.setCursor(cursorX + (width/4), cursorY + (height/4));
   display.print("SELL");
-  
+
+  cursorY = cursorY + 50;
+  cursorX = 10;
+  display.setCursor(cursorX, cursorY);
+  if (buySellMsg == LOADING) {
+    display.print("LOADING...");
+  } else if (buySellMsg == SUCCESS) {
+    display.print("SUCCESS!");
+  } else if (buySellMsg == ERROR_BUY) {
+    display.print("ERROR: bad liquid");
+  } else if (buySellMsg == ERROR_SELL) {
+    display.print("ERROR: bad token num");
+  }
 }
 
 void BuyScreenDisplay(int localID) {
@@ -500,6 +532,19 @@ void BuyScreenDisplay(int localID) {
     /*color=*/ state == BUY_TOKEN_BUY ? CYAN : BLUE);
   display.setCursor(cursorX + (width/4), cursorY + (height/4));
   display.print("BUY");
+
+  cursorY = cursorY + 50;
+  cursorX = 10;
+  display.setCursor(cursorX, cursorY);
+  if (buySellMsg == LOADING) {
+    display.print("LOADING...");
+  } else if (buySellMsg == SUCCESS) {
+    display.print("SUCCESS!");
+  } else if (buySellMsg == ERROR_BUY) {
+    display.print("ERROR: bad liquid");
+  } else if (buySellMsg == ERROR_SELL) {
+    display.print("ERROR: bad token num");
+  }
   
 }
 
@@ -564,10 +609,7 @@ void TestTFTDisplay(String text) {
   // Note that the screen is 240 pixels wide by 320 pixels tall.
   // (0,0) corresponds to the top left corner of the TFT display while
   // (239, 319) corresponds to the bottom right corner.
-  display.fillRect(/*x_coordinate=*/ 10, /*y_coordinate=*/20, /*width=*/100, /*height=*/10, /*color=*/ WHITE);
-
-  display.drawRect(/*x_coordinate=*/ 10, /*y_coordinate=*/200, /*width=*/100, /*height=*/10, /*color=*/ WHITE);
-
+  
   // You can also write text to the display. Setting the cursor beforehand will dictate the
   // screen coordinates to start rendering the text to.
   display.setCursor(1, 1);
