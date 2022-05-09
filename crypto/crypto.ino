@@ -53,6 +53,7 @@ WiFiClient wifi_client;
 #define BUY_TOKEN_BACK 5
 #define SELL_TOKEN_SELL  6
 #define SELL_TOKEN_BACK 7
+#define PORTFOLIO_NEXT 9
 #define MAX_PAGES 4
 #define LOW_AXIS 1000
 #define HIGH_AXIS 3800
@@ -284,7 +285,7 @@ void loop() {
          state = SELL_TOKEN_SELL;
          SellScreenDisplay(currentCoinID);
          wait(WAIT_TIME);
-      }
+      } 
      
     } else if (x_pos < LOW_AXIS){ //LEFT IS 0
       if (state == CRYPTO_INFO_SELL) {
@@ -304,7 +305,7 @@ void loop() {
          state = SELL_TOKEN_BACK;
          SellScreenDisplay(currentCoinID);
          wait(WAIT_TIME);
-      }
+      } 
       
     } else if (y_pos > HIGH_AXIS) { //DOWN IS 4095
       if (state == BUY_TOKEN_BACK || state == BUY_TOKEN_BUY) {
@@ -340,11 +341,16 @@ void loop() {
         state = SELL_TOKEN_SELL;
         SellScreenDisplay(currentCoinID);
         wait(WAIT_TIME);
-      } else if (state == CRYPTO_INFO_NEXT) {//AND YOU WANT TO GO TO THE NEXT TOKEN PAGE
+      } else if (state == CRYPTO_INFO_NEXT || state == PORTFOLIO_NEXT) {//AND YOU WANT TO GO TO THE NEXT TOKEN PAGE
         if (currentCoinID + 1 < MAX_PAGES) {
           currentCoinID = currentCoinID + 1;
           state = CRYPTO_INFO_BUY; 
           CryptoInfoDisplay(currentCoinID);
+          wait(WAIT_TIME);
+        } else if (currentCoinID + 1 == MAX_PAGES) {
+          currentCoinID = currentCoinID + 1;
+          state = PORTFOLIO_NEXT;
+          PortfolioDisplay();
           wait(WAIT_TIME);
         } else {
           currentCoinID = 0;
@@ -411,6 +417,43 @@ void InitWifi() {
     Serial.print(".");
   }
   Serial.println("connected.");
+}
+
+void PortfolioDisplay() {
+  display.fillScreen(BLACK);
+  
+  display.setCursor(1, 1);
+  display.print("PORTFOLIO");
+
+  int cursorX = 10;
+  int cursorY = 30;
+
+  display.setCursor(cursorX, cursorY);
+  display.print("Liquid($): ");
+  display.setCursor(cursorX + 150, cursorY);
+  display.print(portfolio.liquid);
+
+  cursorY = cursorY + 30;
+  display.setCursor(cursorX, cursorY);
+  display.print("TVL($): ");
+  display.setCursor(cursorX + 160, cursorY);
+  display.print(portfolio.tvl);
+
+  cursorY = cursorY + 30;
+  display.setCursor(cursorX, cursorY);
+  display.print("Value($): ");
+  display.setCursor(cursorX + 150, cursorY);
+  display.print(portfolio.totalValue);
+
+
+  int width = 80;
+  int height = 40;
+  cursorY = cursorY + 30;
+  cursorX = cursorX + 220;
+  display.drawRect(/*x_coordinate=*/ cursorX, /*y_coordinate=*/cursorY, /*width=*/width, /*height=*/height, 
+    /*color=*/ state == PORTFOLIO_NEXT ? CYAN : BLUE);
+  display.setCursor(cursorX + (width/4), cursorY + (height/4));
+  display.print("NEXT");
 }
 
 void SellScreenDisplay(int localID) {
